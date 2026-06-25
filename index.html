@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IA Hub</title>
+
+  <!-- ===== PWA META ===== -->
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="icons/favicon.ico" type="image/x-icon" />
+  <meta name="theme-color" content="#10b981" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="IA Hub" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <meta name="description" content="Accède rapidement aux meilleures IA : catalogue, favoris, comparateur." />
+
+  <!-- ===== FICHIER ORIGINAL (non modifié) ===== -->
+  <link rel="stylesheet" href="styles.css" />
+
+  <!-- ===== NOUVEAUX STYLES ===== -->
+  <style>
+    /* ---- Bandeau install PWA ---- */
+    #pwa-banner {
+      display: none;
+      position: fixed;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: calc(100% - 32px);
+      max-width: 480px;
+      background: #111827;
+      border: 1px solid rgba(255,255,255,0.1);
+      color: white;
+      border-radius: 18px;
+      padding: 14px 18px;
+      box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      animation: slideUp 0.4s ease;
+    }
+    @keyframes slideUp {
+      from { transform: translateX(-50%) translateY(60px); opacity: 0; }
+      to   { transform: translateX(-50%) translateY(0);   opacity: 1; }
+    }
+    #pwa-banner.hidden { display: none !important; }
+    #pwa-banner-text { flex: 1; font-size: 0.9rem; font-weight: 600; }
+    #pwa-banner-text span { display: block; font-size: 0.78rem; font-weight: 400; opacity: 0.88; }
+    #pwa-install-btn {
+      width: auto;
+      padding: 8px 16px;
+      border-radius: 999px;
+      background: white;
+      color: #059669;
+      font-size: 0.85rem;
+      font-weight: 700;
+      border: none;
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    #pwa-install-btn:hover { transform: none; box-shadow: none; opacity: 0.9; }
+    #pwa-dismiss-btn {
+      background: none;
+      border: none;
+      color: rgba(255,255,255,0.7);
+      font-size: 1.2rem;
+      cursor: pointer;
+      padding: 0 4px;
+      width: auto;
+      line-height: 1;
+    }
+    #pwa-dismiss-btn:hover { transform: none; box-shadow: none; color: white; }
+
+    /* ---- Indicateur offline ---- */
+    #offline-bar {
+      display: none;
+      background: #ef4444;
+      color: white;
+      text-align: center;
+      padding: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+    }
+    #offline-bar.visible { display: block; }
+
+    /* ---- Navigation par onglets ---- */
+    .tab-nav {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 28px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      flex-wrap: wrap;
+    }
+    .tab-btn {
+      width: auto;
+      padding: 10px 20px;
+      border-radius: 12px 12px 0 0;
+      background: rgba(255,255,255,0.06);
+      color: rgba(248,250,252,0.6);
+      font-size: 0.9rem;
+      font-weight: 600;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-bottom: none;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s;
+      transform: none;
+      box-shadow: none;
+    }
+    .tab-btn:hover { background: rgba(255,255,255,0.1); color: var(--text); transform: none; box-shadow: none; }
+    .tab-btn.active { background: rgba(16,185,129,0.15); color: var(--accent-strong); border-color: var(--accent); }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ---- Widget IA du Jour ---- */
+    .ia-of-day {
+      background: linear-gradient(135deg, rgba(139,92,246,0.18), rgba(16,185,129,0.12));
+      border: 1px solid rgba(139,92,246,0.35);
+      border-radius: 20px;
+      padding: 22px 28px;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      flex-wrap: wrap;
+    }
+    .ia-of-day-badge {
+      background: linear-gradient(135deg, #8b5cf6, #10b981);
+      border-radius: 12px;
+      padding: 8px 14px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .ia-of-day-content { flex: 1; min-width: 180px; }
+    .ia-of-day-content h3 { margin: 0 0 4px; font-size: 1.2rem; color: var(--accent-strong); }
+    .ia-of-day-content p { margin: 0; font-size: 0.88rem; color: rgba(248,250,252,0.75); }
+    .ia-of-day-btn {
+      width: auto; padding: 10px 22px; font-size: 0.88rem; border-radius: 999px;
+      background: linear-gradient(135deg, #8b5cf6, #10b981); flex-shrink: 0;
+    }
+    .ia-of-day-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 24px rgba(139,92,246,0.3); }
+
+    /* ---- Stats ---- */
+    .stats-bar {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .stat-card {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      padding: 18px 14px;
+      text-align: center;
+    }
+    .stat-number {
+      font-size: 1.8rem; font-weight: 800;
+      background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+      line-height: 1;
+    }
+    .stat-label { font-size: 0.75rem; color: rgba(248,250,252,0.55); margin-top: 6px; text-transform: uppercase; letter-spacing: 0.05em; }
+
+    /* ---- Favoris ---- */
+    .favorites-section {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 20px;
+      padding: 24px;
+    }
+    .favorites-section h2 { margin: 0 0 18px; }
+    .favorites-empty { color: rgba(248,250,252,0.45); text-align: center; padding: 32px; font-size: 0.95rem; }
+    .favorites-empty span { display: block; font-size: 2.5rem; margin-bottom: 10px; }
+    .favorites-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+    .fav-chip {
+      background: rgba(16,185,129,0.1);
+      border: 1px solid rgba(16,185,129,0.25);
+      border-radius: 12px;
+      padding: 12px 14px;
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      cursor: pointer; transition: background 0.2s;
+    }
+    .fav-chip:hover { background: rgba(16,185,129,0.18); }
+    .fav-chip-name { font-size: 0.88rem; font-weight: 600; color: var(--accent-strong); }
+    .fav-remove { background: none; border: none; color: rgba(248,250,252,0.4); font-size: 1rem; cursor: pointer; padding: 0; width: auto; line-height: 1; transition: color 0.2s; }
+    .fav-remove:hover { color: #ef4444; transform: none; box-shadow: none; }
+
+    /* ---- Items catalogue ---- */
+    .ia-item { display: flex; align-items: center; justify-content: space-between; }
+    .ia-item-left { display: flex; align-items: center; flex: 1; }
+    .fav-toggle { background: none; border: none; color: rgba(248,250,252,0.25); font-size: 1rem; cursor: pointer; padding: 4px 6px; width: auto; transition: color 0.2s, transform 0.15s; line-height: 1; }
+    .fav-toggle:hover { color: #fbbf24; transform: scale(1.2); box-shadow: none; }
+    .fav-toggle.is-fav { color: #fbbf24; }
+
+    /* ---- Comparateur ---- */
+    .comparator-section { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; padding: 24px; }
+    .comparator-section h2 { margin: 0 0 8px; }
+    .comparator-hint { font-size: 0.88rem; color: rgba(248,250,252,0.5); margin: 0 0 20px; }
+    .compare-selects { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+    .compare-selects select { width: 100%; padding: 14px 18px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.12); background: rgba(15,23,42,0.92); color: var(--text); font-size: 1rem; appearance: none; cursor: pointer; }
+    .compare-selects select:focus { outline: none; border-color: var(--accent-strong); box-shadow: 0 0 0 4px rgba(52,211,153,0.12); }
+    #compareBtn { width: 100%; margin-bottom: 20px; background: linear-gradient(135deg, #3b82f6, #8b5cf6); }
+    #compareBtn:hover { box-shadow: 0 18px 30px rgba(59,130,246,0.3); }
+    .compare-result { display: none; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .compare-result.visible { display: grid; }
+    .compare-card { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 20px; }
+    .compare-card h3 { margin: 0 0 14px; color: var(--accent-strong); font-size: 1.1rem; }
+    .compare-card ul { margin: 0; padding: 0 0 0 18px; }
+    .compare-card li { margin-bottom: 8px; font-size: 0.88rem; color: rgba(248,250,252,0.8); line-height: 1.5; }
+
+    /* ---- Responsive ---- */
+    @media (max-width: 560px) {
+      .stats-bar { grid-template-columns: repeat(2, 1fr); }
+      .compare-selects, .compare-result { grid-template-columns: 1fr; }
+      .ia-of-day { flex-direction: column; align-items: flex-start; }
+      .tab-btn { padding: 8px 12px; font-size: 0.82rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Indicateur hors-ligne -->
+  <div id="offline-bar">📵 Vous êtes hors-ligne — l'application reste disponible en mode local.</div>
+
+  <div class="app-shell">
+
+    <!-- HEADER ORIGINAL -->
+    <header>
+      <img class="site-logo" src="icons/logo.png" alt="Logo IA Hub" />
+      <h1>Discussion IA</h1>
+      <p>Cliquer sur le bouton pour ouvrir directement une discussion IA dans un nouvel onglet.</p>
+    </header>
+
+    <!-- Navigation par onglets (nouveau) -->
+    <nav class="tab-nav" role="tablist">
+      <button class="tab-btn active" data-tab="accueil" role="tab">🏠 Accueil</button>
+      <button class="tab-btn" data-tab="catalogue" role="tab">📚 Catalogue</button>
+      <button class="tab-btn" data-tab="favoris" role="tab">⭐ Favoris <span id="favCount"></span></button>
+      <button class="tab-btn" data-tab="comparateur" role="tab">⚖️ Comparer</button>
+    </nav>
+
+    <main>
+
+      <!-- ONGLET ACCUEIL -->
+      <div class="tab-panel active" id="tab-accueil">
+        <div class="ia-of-day">
+          <div class="ia-of-day-badge">✨ IA du jour</div>
+          <div class="ia-of-day-content">
+            <h3 id="iadName">—</h3>
+            <p id="iadDesc">—</p>
+          </div>
+          <button class="ia-of-day-btn" id="iadBtn">Découvrir →</button>
+        </div>
+        <div class="stats-bar">
+          <div class="stat-card"><div class="stat-number">270+</div><div class="stat-label">IA répertoriées</div></div>
+          <div class="stat-card"><div class="stat-number">9</div><div class="stat-label">Catégories</div></div>
+          <div class="stat-card"><div class="stat-number" id="statFav">0</div><div class="stat-label">Mes favoris</div></div>
+          <div class="stat-card"><div class="stat-number" id="statVisits">1</div><div class="stat-label">Visites</div></div>
+        </div>
+
+        <!-- SECTION HERO ORIGINALE -->
+        <section class="hero-card">
+          <p class="hero-text">Choisis avec quelle IA tu veux démarrer ta discussion.</p>
+          <div class="choice-grid">
+            <button id="openChatGPTButton" class="primary-button">Ouvrir ChatGPT</button>
+            <button id="openCopilotButton" class="secondary-button">Ouvrir Microsoft Copilot</button>
+            <button id="openClaudeButton" class="tertiary-button">Ouvrir Claude</button>
+            <button id="openGeminiButton" class="quaternary-button">Ouvrir Gemini</button>
+          </div>
+          <p class="hint">Connecte-toi d'abord à ton compte OpenAI, Microsoft ou Anthropic si nécessaire.</p>
+        </section>
+      </div>
+
+      <!-- ONGLET CATALOGUE (contenu original) -->
+      <div class="tab-panel" id="tab-catalogue">
+        <section class="catalog">
+          <h2>Catalogue des IA</h2>
+          <div class="catalog-search">
+            <input id="catalogSearchInput" type="search" placeholder="Rechercher une IA..." aria-label="Rechercher dans le catalogue IA" />
+            <select id="catalogCategorySelect" aria-label="Filtrer par catégorie IA">
+              <option value="all">Toutes catégories</option>
+              <option value="generalistes">IA généralistes & assistants</option>
+              <option value="ecriture">IA d'écriture & texte</option>
+              <option value="images">IA d'images</option>
+              <option value="video">IA vidéo</option>
+              <option value="audio">IA audio & voix</option>
+              <option value="opensource">IA open-source</option>
+              <option value="business">IA business & productivité</option>
+              <option value="code">IA code & dev</option>
+              <option value="recherche">IA recherche & analyse</option>
+            </select>
+          </div>
+
+          <div class="ia-category" data-category="generalistes"><h3>IA généralistes & assistants</h3><ul class="ia-list">
+            <li class="ia-item"><div class="ia-item-left"><strong>ChatGPT</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Copilot</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Gemini</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Claude</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Perplexity</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>HuggingChat</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>YouChat</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Pi AI</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Janitor AI</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Character AI</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Replika</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>OpenAssistant</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Llama 3</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Mistral</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>DeepSeek</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Qwen</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Gemma</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Vicuna</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Alpaca</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Falcon</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>WizardLM</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Nous Hermes</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Yi</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>InternLM</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Phi</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>MiniCPM</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Groq Chat</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Reka Core</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>MyGPT</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>OpenChat</strong></div><button class="fav-toggle">☆</button></li>
+          </ul></div>
+
+          <div class="ia-category" data-category="ecriture"><h3>IA d'écriture & texte</h3><ul class="ia-list">
+            <li class="ia-item"><div class="ia-item-left"><strong>Jasper</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Copy.ai</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Writesonic</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Rytr</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Sudowrite</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Notion AI</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Grammarly</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Quillbot</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Wordtune</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Scribe</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>HyperWrite</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Writer.com</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>INK</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>AI21 Studio</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>TextCortex</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Compose AI</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Anyword</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Peppertype</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Longshot AI</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Frase</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Scalenut</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Copysmith</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Texta.ai</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Katteb</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Neuroflash</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>AISEO</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>WriterZen</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Smodin</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Hemingway AI</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Paraphraser.io</strong></div><button class="fav-toggle">☆</button></li>
+          </ul></div>
+
+          <div class="ia-category" data-category="images"><h3>IA d'images</h3><ul class="ia-list">
+            <li class="ia-item"><div class="ia-item-left"><strong>Midjourney</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>DALL·E</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Stable Diffusion</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Leonardo AI</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Ideogram</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Runway Gen-2</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Firefly</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Playground AI</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Fotor AI</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Canva AI</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>NightCafe</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>BlueWillow</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Artbreeder</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>DeepDream</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Craiyon</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Pixray</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>DeepArt</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>GauGAN</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Luma AI</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Krea AI</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Mage</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>DiffusionBee</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Recraft</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>PhotoRoom</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Remove.bg</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>GFPGAN</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>FaceApp</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Remini</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>VanceAI</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>ClipDrop</strong></div><button class="fav-toggle">☆</button></li>
+          </ul></div>
+
+          <div class="ia-category" data-category="video"><h3>IA vidéo</h3><ul class="ia-list">
+            <li class="ia-item"><div class="ia-item-left"><strong>Sora</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Runway</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Pika Labs</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Synthesia</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>HeyGen</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Luma Dream Machine</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Fliki</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>InVideo</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Descript</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Colossyan</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Veed.io</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Kapwing AI</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Rephrase.ai</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Movio</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>D-ID</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Genmo</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Kaiber</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Pictory</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Synthesys</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Elai.io</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>HourOne</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Virbo</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Lightricks</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>DeepBrain AI</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>RawShorts</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Synths.Video</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Revid</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Wist Labs</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>LeiaPix</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Colab Video Diffusion</strong></div><button class="fav-toggle">☆</button></li>
+          </ul></div>
+
+          <div class="ia-category" data-category="audio"><h3>IA audio & voix</h3><ul class="ia-list">
+            <li class="ia-item"><div class="ia-item-left"><strong>ElevenLabs</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Voicemod</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Murf AI</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Overdub</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Resemble AI</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Speechify</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Play.ht</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Coqui TTS</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Whisper</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>VALL-E</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>RVC</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Uberduck</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Kits AI</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Voicery</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Lovo.ai</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Altered Studio</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Harmonai</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Melobytes</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>AIVA</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Boomy</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Soundraw</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Amper Music</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Endlesss</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Voctro Labs</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>DeepSinger</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>DiffSinger</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>MusicLM</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Jukebox</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Sunno AI</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Loudly</strong></div><button class="fav-toggle">☆</button></li>
+          </ul></div>
+
+          <div class="ia-category" data-category="opensource"><h3>IA open-source</h3><ul class="ia-list">
+            <li class="ia-item"><div class="ia-item-left"><strong>GPT4All</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Ollama</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>LM Studio</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Mistral 7B</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Llama 2</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Llama 3</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Mixtral</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Qwen 2</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Phi-3</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Zephyr</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>RedPajama</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Bloom</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>GPT-J</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>GPT-NeoX</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>RWKV</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>MPT</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Dolly</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>StarCoder</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>CodeLlama</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Polycoder</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>OpenInterpreter</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Continue.dev</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>StableLM</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>OpenLLaMA</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Falcon 7B</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Yi 34B</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Gemma 2B</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Pythia</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>OPT</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>UL2</strong></div><button class="fav-toggle">☆</button></li>
+          </ul></div>
+
+          <div class="ia-category" data-category="business"><h3>IA business & productivité</h3><ul class="ia-list">
+            <li class="ia-item"><div class="ia-item-left"><strong>Zapier AI</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Airtable AI</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Notion AI</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Trello AI</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Asana AI</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Slack AI</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>ClickUp AI</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>HubSpot AI</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Monday AI</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Zoho AI</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Freshdesk AI</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Intercom AI</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Tidio AI</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>LiveChat AI</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Hiver AI</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Fireflies</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Otter.ai</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Krisp</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Motion AI</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Clockwise AI</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Superhuman AI</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Mailbutler AI</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Flowrite</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Tactiq</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Fathom</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Reclaim AI</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Magical AI</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Bardeen</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Gamma</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>SlidesAI</strong></div><button class="fav-toggle">☆</button></li>
+          </ul></div>
+
+          <div class="ia-category" data-category="code"><h3>IA code & dev</h3><ul class="ia-list">
+            <li class="ia-item"><div class="ia-item-left"><strong>GitHub Copilot</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Codeium</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Tabnine</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Replit Ghostwriter</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Cursor</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Windsurf</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Aider</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Bolt.new</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>CodeGeeX</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>StarCoder</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>CodeLlama</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Polycoder</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>OpenInterpreter</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Continue.dev</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>DeepCode</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Snyk AI</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>CodiumAI</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>MutableAI</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>AskCodi</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Blackbox AI</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Kite</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Phind</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>ExplainDev</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>AI Query</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>SQL AI</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Regex AI</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Figstack</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Mintlify</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>DocuWriter</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>OpenCodeInterpreter</strong></div><button class="fav-toggle">☆</button></li>
+          </ul></div>
+
+          <div class="ia-category" data-category="recherche"><h3>IA recherche & analyse</h3><ul class="ia-list">
+            <li class="ia-item"><div class="ia-item-left"><strong>Perplexity</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Elicit</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Consensus</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Scite</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Semantic Scholar</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Research Rabbit</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Connected Papers</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>ExplainPaper</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Scholarcy</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Iris AI</strong></div><button class="fav-toggle">☆</button></li>
+            <li class="ia-item"><div class="ia-item-left"><strong>Inciteful</strong></div><button class="fav-toggle">☆</button></li>
+          </ul></div>
+
+        </section>
+      </div>
+
+      <!-- ONGLET FAVORIS -->
+      <div class="tab-panel" id="tab-favoris">
+        <div class="favorites-section">
+          <h2>⭐ Mes favoris</h2>
+          <div id="favoritesContainer">
+            <div class="favorites-empty"><span>☆</span>Aucun favori.<br>Va dans le <strong>Catalogue</strong> et clique sur ☆ !</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ONGLET COMPARATEUR -->
+      <div class="tab-panel" id="tab-comparateur">
+        <div class="comparator-section">
+          <h2>⚖️ Comparer deux IA</h2>
+          <p class="comparator-hint">Sélectionne deux IA pour voir leurs points forts côte à côte.</p>
+          <div class="compare-selects">
+            <select id="compare1"><option value="">— IA n°1 —</option></select>
+            <select id="compare2"><option value="">— IA n°2 —</option></select>
+          </div>
+          <button id="compareBtn">Comparer →</button>
+          <div class="compare-result" id="compareResult">
+            <div class="compare-card" id="compareCard1"></div>
+            <div class="compare-card" id="compareCard2"></div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+
+    <!-- FOOTER ORIGINAL -->
+    <footer><p>&copy; 2026 - IA hub</p></footer>
+  </div>
+
+  <!-- Bandeau installation PWA -->
+  <div id="pwa-banner" class="hidden">
+    <img src="icons/logo.png" style="width:44px;height:44px;border-radius:10px;flex-shrink:0;" alt="IA Hub" />
+    <div id="pwa-banner-text">
+      Installer IA Hub
+      <span>Accès rapide depuis ton écran d'accueil</span>
+    </div>
+    <button id="pwa-install-btn">Installer</button>
+    <button id="pwa-dismiss-btn" title="Fermer">✕</button>
+  </div>
+
+  <!-- SCRIPT ORIGINAL (non modifié) -->
+  <script src="script.js"></script>
+
+  <!-- NOUVEAUX SCRIPTS -->
+  <script>
+    // ---- PWA : enregistrement du Service Worker ----
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then(reg => console.log('[PWA] Service Worker enregistré :', reg.scope))
+          .catch(err => console.warn('[PWA] Erreur SW :', err));
+      });
+    }
+
+    // ---- PWA : détection install prompt ----
+    let deferredPrompt = null;
+    const pwaBanner = document.getElementById('pwa-banner');
+    window.addEventListener('beforeinstallprompt', e => {
+      e.preventDefault();
+      deferredPrompt = e;
+      pwaBanner.classList.remove('hidden');
+    });
+    document.getElementById('pwa-install-btn').addEventListener('click', async () => {
+      if (!deferredPrompt) return;
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      deferredPrompt = null;
+      pwaBanner.classList.add('hidden');
+    });
+    document.getElementById('pwa-dismiss-btn').addEventListener('click', () => {
+      pwaBanner.classList.add('hidden');
+    });
+
+    // ---- Détection offline ----
+    const offlineBar = document.getElementById('offline-bar');
+    function updateOnlineStatus() {
+      offlineBar.classList.toggle('visible', !navigator.onLine);
+    }
+    window.addEventListener('online', updateOnlineStatus);
+    window.addEventListener('offline', updateOnlineStatus);
+    updateOnlineStatus();
+
+    // ---- IA du jour ----
+    const iaOfDayData = [
+      { name: "Perplexity", desc: "Moteur de recherche IA qui cite ses sources en temps réel.", url: "https://www.perplexity.ai/" },
+      { name: "Midjourney", desc: "Génération d'images artistiques de très haute qualité.", url: "https://www.midjourney.com/" },
+      { name: "ElevenLabs", desc: "Synthèse vocale ultra-réaliste en 29 langues.", url: "https://elevenlabs.io/" },
+      { name: "GitHub Copilot", desc: "Assistant de code IA intégré dans ton éditeur.", url: "https://github.com/features/copilot" },
+      { name: "Notion AI", desc: "IA intégrée pour écrire, résumer et organiser.", url: "https://www.notion.so/product/ai" },
+      { name: "Runway", desc: "Génération et édition vidéo alimentées par l'IA.", url: "https://runwayml.com/" },
+      { name: "Claude", desc: "Assistant IA d'Anthropic, réputé pour ses réponses nuancées.", url: "https://claude.ai/" },
+    ];
+    const todayIa = iaOfDayData[new Date().getDay() % iaOfDayData.length];
+    document.getElementById("iadName").textContent = todayIa.name;
+    document.getElementById("iadDesc").textContent = todayIa.desc;
+    document.getElementById("iadBtn").addEventListener("click", () => window.open(todayIa.url, "_blank"));
+
+    // ---- Visites (localStorage pour persistance PWA) ----
+    let visits = parseInt(localStorage.getItem("iaHubVisits") || "0") + 1;
+    localStorage.setItem("iaHubVisits", visits);
+    document.getElementById("statVisits").textContent = visits;
+
+    // ---- Navigation par onglets ----
+    document.querySelectorAll(".tab-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+        document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+        btn.classList.add("active");
+        document.getElementById("tab-" + btn.dataset.tab).classList.add("active");
+      });
+    });
+
+    // ---- Favoris (localStorage pour persistance PWA) ----
+    let favorites = JSON.parse(localStorage.getItem("iaHubFavs") || "[]");
+
+    function saveFavs() {
+      localStorage.setItem("iaHubFavs", JSON.stringify(favorites));
+      updateFavCount();
+      renderFavorites();
+    }
+
+    function updateFavCount() {
+      const n = favorites.length;
+      document.getElementById("favCount").textContent = n > 0 ? `(${n})` : "";
+      document.getElementById("statFav").textContent = n;
+    }
+
+    function renderFavorites() {
+      const container = document.getElementById("favoritesContainer");
+      if (favorites.length === 0) {
+        container.innerHTML = `<div class="favorites-empty"><span>☆</span>Aucun favori.<br>Va dans le <strong>Catalogue</strong> et clique sur ☆ !</div>`;
+        return;
+      }
+      const grid = document.createElement("div");
+      grid.className = "favorites-grid";
+      favorites.forEach(name => {
+        const chip = document.createElement("div");
+        chip.className = "fav-chip";
+        chip.innerHTML = `<span class="fav-chip-name">${name}</span><button class="fav-remove" title="Retirer">✕</button>`;
+        chip.querySelector(".fav-remove").addEventListener("click", e => { e.stopPropagation(); removeFav(name); });
+        chip.addEventListener("click", () => {
+          const iaLinks = { "chatgpt":"https://chat.openai.com/chat","claude":"https://claude.ai/","gemini":"https://gemini.google/","perplexity":"https://www.perplexity.ai/" };
+          window.open(iaLinks[name.toLowerCase()] || `https://www.google.com/search?q=${encodeURIComponent(name)}`, "_blank");
+        });
+        grid.appendChild(chip);
+      });
+      container.innerHTML = "";
+      container.appendChild(grid);
+    }
+
+    function removeFav(name) {
+      favorites = favorites.filter(f => f !== name);
+      document.querySelectorAll(".fav-toggle").forEach(btn => {
+        const n = btn.closest(".ia-item")?.querySelector("strong")?.textContent;
+        if (n === name) { btn.classList.remove("is-fav"); btn.textContent = "☆"; }
+      });
+      saveFavs();
+    }
+
+    document.querySelectorAll(".fav-toggle").forEach(btn => {
+      const name = btn.closest(".ia-item")?.querySelector("strong")?.textContent;
+      if (!name) return;
+      if (favorites.includes(name)) { btn.classList.add("is-fav"); btn.textContent = "★"; }
+      btn.addEventListener("click", e => {
+        e.stopPropagation();
+        if (favorites.includes(name)) { removeFav(name); btn.classList.remove("is-fav"); btn.textContent = "☆"; }
+        else { favorites.push(name); saveFavs(); btn.classList.add("is-fav"); btn.textContent = "★"; }
+      });
+    });
+
+    updateFavCount();
+    renderFavorites();
+
+    // ---- Comparateur ----
+    const compareData = {
+      "ChatGPT": ["Très polyvalent (texte, images, code)", "GPT-4o ultra-rapide", "Plugins & GPTs personnalisables", "Mémoire des conversations", "Interface intuitive"],
+      "Claude": ["Contexte 200K tokens", "Réponses nuancées et prudentes", "Excellent pour les documents longs", "Ton naturel et conversationnel", "Anthropic, axé sécurité IA"],
+      "Gemini": ["Intégration native Google (Drive, Docs…)", "Multimodal : texte, image, audio, vidéo", "Accès web en temps réel", "Gratuit avec compte Google", "Gemini 1.5 Pro = très long contexte"],
+      "Copilot": ["Intégré à Windows & Microsoft 365", "Basé sur GPT-4 (gratuit)", "Génération d'images DALL·E", "Navigation web en temps réel", "Idéal pour l'environnement Office"],
+      "Perplexity": ["Cite toujours ses sources", "Recherche web en temps réel", "Réponses concises et vérifiables", "Mode Focus (académique, YouTube…)", "Gratuit sans inscription"],
+      "Midjourney": ["Qualité artistique exceptionnelle", "Styles très variés et cohérents", "Communauté Discord active", "Génération rapide v6", "Référence pour l'illustration"],
+      "Stable Diffusion": ["Open-source et gratuit", "Entièrement local (vie privée)", "Personnalisable via LoRA/ControlNet", "Des milliers de modèles dispo", "Pas de censure"],
+      "ElevenLabs": ["Voix ultra-réalistes", "Clonage vocal en quelques secondes", "29 langues supportées", "API facile à intégrer", "Référence TTS"],
+      "GitHub Copilot": ["Intégré VS Code, JetBrains…", "Complétion en temps réel", "Génère des tests auto", "Comprend le contexte du projet", "40+ langages supportés"],
+      "Cursor": ["IDE complet avec IA intégrée", "Refactoring de fichiers entiers", "Contexte sur toute la codebase", "Chat inline dans le code", "Basé sur VS Code"],
+    };
+    const allNames = [...new Set(Array.from(document.querySelectorAll(".ia-item strong")).map(el => el.textContent))].sort();
+    [document.getElementById("compare1"), document.getElementById("compare2")].forEach(sel => {
+      allNames.forEach(name => { const o = document.createElement("option"); o.value = o.textContent = name; sel.appendChild(o); });
+    });
+    document.getElementById("compareBtn").addEventListener("click", () => {
+      const n1 = document.getElementById("compare1").value, n2 = document.getElementById("compare2").value;
+      if (!n1 || !n2 || n1 === n2) { alert("Choisis deux IA différentes !"); return; }
+      const res = document.getElementById("compareResult");
+      res.classList.add("visible");
+      [{ id: "compareCard1", name: n1 }, { id: "compareCard2", name: n2 }].forEach(({ id, name }) => {
+        const pts = compareData[name] || ["Outil IA spécialisé", "Clique dans le catalogue pour en savoir plus", "Recherchable via Google"];
+        document.getElementById(id).innerHTML = `<h3>${name}</h3><ul>${pts.map(p=>`<li>${p}</li>`).join("")}</ul>`;
+      });
+    });
+  </script>
+</body>
+</html>
